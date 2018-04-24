@@ -21,12 +21,13 @@ type Options struct {
 	BaseURL  string
 	User     string
 	Password string
+	Token    string
+	Tag      string
 }
 
 // Client lets you send a container up to a repository
 type Client struct {
 	Options
-	Token string
 }
 
 // New creates a new Client
@@ -50,7 +51,6 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 
 func (c *Client) sendBlob(digest digest.Digest, data []byte) error {
 
-	// TODO: This is wrong - it needs the digest in there somewhere
 	uploaded, err := c.isBlobUploaded(digest)
 	if err != nil {
 		return errors.Wrap(err, "could not check if blob is already uploaded")
@@ -144,7 +144,7 @@ func (c *Client) uploadBlob(loc *url.URL, digest digest.Digest, data []byte) err
 }
 
 func (c *Client) sendManifest(digest digest.Digest, data []byte, mediaType string) error {
-	u := strings.Join([]string{c.BaseURL, "v2", c.Name, "manifests", "latest"}, "/")
+	u := strings.Join([]string{c.BaseURL, "v2", c.Name, "manifests", c.Tag}, "/")
 	b := bytes.NewReader(data)
 	req, err := c.newRequest(http.MethodPut, u, b)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *Client) sendManifest(digest digest.Digest, data []byte, mediaType strin
 		return errors.Wrap(err, "failed to read body on blob upload response")
 	}
 
-	if rsp.StatusCode != http.StatusCreated {
+	if rsp.StatusCode != http.StatusCreated && rsp.StatusCode != http.StatusOK {
 		return errors.Errorf("unexpected status %s. %s", rsp.Status, string(body))
 	}
 
