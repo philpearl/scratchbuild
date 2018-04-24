@@ -16,13 +16,21 @@ import (
 
 // Options contains configuration options for the client
 type Options struct {
-	Dir      string
-	Name     string
-	BaseURL  string
+	// Dir is the directory that we build the container from
+	Dir string
+	// Name is the name of the repository
+	Name string
+	// BaseURL is the base URL of the repository. For Docker this is https://index.docker.io
+	// For GCR it is https://gcr.io
+	BaseURL string
+	//
 	User     string
 	Password string
-	Token    string
-	Tag      string
+	// Token is the bearer token for the repository. For GCR you can use $(gcloud auth print-access-token).
+	// For Docker, supply your Docker Hub username and password instead.
+	Token string
+	// Tag is the tag for the image. Set to "latest" if you're out of ideas
+	Tag string
 }
 
 // Client lets you send a container up to a repository
