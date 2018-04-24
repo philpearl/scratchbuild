@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	digest "github.com/opencontainers/go-digest"
@@ -49,9 +50,81 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 
 func (c *Client) sendBlob(digest digest.Digest, data []byte) error {
 
-	// First we create the upload. This tells us where to upload to
+	// TODO: This is wrong - it needs the digest in there somewhere
+	uploaded, err := c.isBlobUploaded(digest)
+	if err != nil {
+		return errors.Wrap(err, "could not check if blob is already uploaded")
+	}
+	if uploaded {
+		fmt.Printf("blob already uploaded\n")
+		return nil
+	}
+
+	// The repository tells us where the blob should be uploaded to
+	loc, err := c.getBlobUploadLocation()
+	if err != nil {
+		return errors.Wrap(err, "could not get location for blob upload")
+	}
+
+	if err := c.uploadBlob(loc, digest, data); err != nil {
+		return errors.Wrap(err, "blob upload failed")
+	}
+
+	return nil
+}
+
+func (c *Client) isBlobUploaded(digest digest.Digest) (bool, error) {
+	u := strings.Join([]string{c.BaseURL, "v2", c.Name, "blobs", digest.String()}, "/")
+
+	req, err := c.newRequest(http.MethodHead, u, nil)
+	if err != nil {
+		return false, errors.Wrap(err, "could nto build request")
+	}
+
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, errors.Wrap(err, "blob upload failed")
+	}
+
+	return rsp.StatusCode == http.StatusOK, nil
+}
+
+func (c *Client) getBlobUploadLocation() (*url.URL, error) {
 	u := strings.Join([]string{c.BaseURL, "v2", c.Name, "blobs/uploads/"}, "/")
 	req, err := c.newRequest(http.MethodPost, u, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not build request")
+	}
+
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "blob upload failed")
+	}
+	defer rsp.Body.Close()
+	body, err := ioutil.ReadAll(rsp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read body on blob upload response")
+	}
+
+	if rsp.StatusCode != http.StatusAccepted {
+		return nil, errors.Errorf("unexpected status %s. %s", rsp.Status, string(body))
+	}
+
+	return rsp.Location()
+}
+
+func (c *Client) uploadBlob(loc *url.URL, digest digest.Digest, data []byte) error {
+	q := loc.Query()
+	q.Set("digest", digest.String())
+	loc.RawQuery = q.Encode()
+
+	r := bytes.NewReader(data)
+	req, err := c.newRequest(http.MethodPut, loc.String(), r)
+	if err != nil {
+		return err
+	}
+	req.ContentLength = int64(len(data))
+	req.Header.Set("Content-Type", "application/octet-stream")
 
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -63,70 +136,11 @@ func (c *Client) sendBlob(digest digest.Digest, data []byte) error {
 		return errors.Wrap(err, "failed to read body on blob upload response")
 	}
 
-	if rsp.StatusCode == http.StatusUnauthorized {
-		fmt.Printf("headers: %#v\n", rsp.Header)
-		authenticate := rsp.Header.Get("Www-Authenticate")
-		parseWWWAuthenticate(authenticate)
-	}
-
-	if rsp.StatusCode != http.StatusAccepted {
-		return errors.Errorf("unexpected status %s. %s", rsp.Status, string(body))
-	}
-
-	loc, err := rsp.Location()
-	if err != nil {
-		return errors.Wrap(err, "could not get location for blob upload")
-	}
-
-	q := loc.Query()
-	q.Set("digest", digest.String())
-	loc.RawQuery = q.Encode()
-
-	log.Printf("posting data to %s\n", loc)
-
-	r := bytes.NewReader(data)
-	req, err = c.newRequest(http.MethodPut, loc.String(), r)
-	if err != nil {
-		return err
-	}
-	req.ContentLength = int64(len(data))
-	req.Header.Set("Content-Type", "application/octet-stream")
-
-	rsp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		return errors.Wrap(err, "blob upload failed")
-	}
-	defer rsp.Body.Close()
-	body, err = ioutil.ReadAll(rsp.Body)
-	if err != nil {
-		return errors.Wrap(err, "failed to read body on blob upload response")
-	}
-
 	if rsp.StatusCode != http.StatusCreated {
 		return errors.Errorf("unexpected status %s. %s", rsp.Status, string(body))
 	}
 
-	uuid := rsp.Header.Get("Docker-Upload-UUID")
-	log.Printf("blob uuid is %s\n", uuid)
-
 	return nil
-}
-
-func parseWWWAuthenticate(raw string) (map[string]string, error) {
-	if !strings.HasPrefix(raw, "Bearer ") {
-		return nil, errors.New("Www-Authenticate header does not start \"Bearer\"")
-	}
-	parts := strings.Split(raw[len("Bearer "):], ",")
-	vals := make(map[string]string, len(parts))
-	for _, part := range parts {
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) != 2 {
-			return nil, errors.Errorf("cannot parse Www-Authenticate header %s", raw)
-		}
-		v := kv[1]
-		vals[kv[0]] = v[1 : len(v)-1]
-	}
-	return vals, nil
 }
 
 func (c *Client) sendManifest(digest digest.Digest, data []byte, mediaType string) error {

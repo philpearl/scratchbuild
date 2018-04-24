@@ -38,6 +38,8 @@ var (
 	}
 )
 
+// Versioned indicates the schema version and media type. It is embedded within
+// other types to indicate what the type is
 type Versioned struct {
 	// SchemaVersion is the image manifest schema that this image follows
 	SchemaVersion int `json:"schemaVersion"`
@@ -46,6 +48,7 @@ type Versioned struct {
 	MediaType string `json:"mediaType,omitempty"`
 }
 
+// Descriptor contains a reference to a blob
 type Descriptor struct {
 	// MediaType describe the type of the content. All text based formats are
 	// encoded as utf-8.
@@ -62,6 +65,7 @@ type Descriptor struct {
 	URLs []string `json:"urls,omitempty"`
 }
 
+// Manifest describes a container image
 type Manifest struct {
 	Versioned
 

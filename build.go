@@ -1,6 +1,7 @@
 package scratchbuild
 
 import (
+	// We need to import this to register the hash function for the digest
 	_ "crypto/sha256"
 	"encoding/json"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// BuildImage builds a simple container image from a single layer and uploads it
+// to a repository
 func (c *Client) BuildImage(imageConfig *ImageConfig, layer []byte) error {
 
 	dig := digest.FromBytes(layer)

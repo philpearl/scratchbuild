@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -80,4 +81,21 @@ func (c *Client) Auth() (string, error) {
 	}
 
 	return tok.Token, nil
+}
+
+func parseWWWAuthenticate(raw string) (map[string]string, error) {
+	if !strings.HasPrefix(raw, "Bearer ") {
+		return nil, errors.New("Www-Authenticate header does not start \"Bearer\"")
+	}
+	parts := strings.Split(raw[len("Bearer "):], ",")
+	vals := make(map[string]string, len(parts))
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			return nil, errors.Errorf("cannot parse Www-Authenticate header %s", raw)
+		}
+		v := kv[1]
+		vals[kv[0]] = v[1 : len(v)-1]
+	}
+	return vals, nil
 }
