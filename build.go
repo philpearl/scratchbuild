@@ -2,6 +2,8 @@ package scratchbuild
 
 import (
 	// We need to import this to register the hash function for the digest
+	"bytes"
+	"compress/gzip"
 	_ "crypto/sha256"
 	"encoding/json"
 
@@ -15,7 +17,19 @@ func (c *Client) BuildImage(imageConfig *ImageConfig, layer []byte) error {
 
 	dig := digest.FromBytes(layer)
 
-	if err := c.sendBlob(dig, layer); err != nil {
+	b := &bytes.Buffer{}
+	gw := gzip.NewWriter(b)
+	if _, err := gw.Write(layer); err != nil {
+		return errors.Wrap(err, "failed to compress image layer")
+	}
+	if err := gw.Close(); err != nil {
+		return errors.Wrap(err, "failed to compress image layer")
+	}
+
+	compressedLayer := b.Bytes()
+	compressedDig := digest.FromBytes(compressedLayer)
+
+	if err := c.sendBlob(compressedDig, compressedLayer); err != nil {
 		return errors.Wrap(err, "failed to send image layer")
 	}
 
@@ -49,9 +63,9 @@ func (c *Client) BuildImage(imageConfig *ImageConfig, layer []byte) error {
 		Versioned: SchemaVersion,
 		Layers: []Descriptor{
 			{
-				MediaType: MediaTypeUncompressedLayer,
-				Digest:    dig,
-				Size:      int64(len(layer)),
+				MediaType: MediaTypeLayer,
+				Digest:    compressedDig,
+				Size:      int64(len(compressedLayer)),
 			},
 		},
 		Config: Descriptor{
