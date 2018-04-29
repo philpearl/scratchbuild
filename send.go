@@ -164,12 +164,12 @@ func (c *Client) sendManifest(digest digest.Digest, data []byte, mediaType strin
 
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "blob upload failed")
+		return errors.Wrap(err, "manifest upload failed")
 	}
 	defer rsp.Body.Close()
 	body, err := ioutil.ReadAll(rsp.Body)
 	if err != nil {
-		return errors.Wrap(err, "failed to read body on blob upload response")
+		return errors.Wrap(err, "failed to read body on manifest upload response")
 	}
 
 	if rsp.StatusCode != http.StatusCreated && rsp.StatusCode != http.StatusOK {

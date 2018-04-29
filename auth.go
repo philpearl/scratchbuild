@@ -12,7 +12,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Auth gets a bearer token
+// Auth gets a bearer token from the repository using the user and password from
+// the client Options. If authentication is needed for your repository, call Auth
+// before calling BuildImage
 func (c *Client) Auth() (string, error) {
 	// First do an empty get to get the auth challenge
 	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/v2/", nil)

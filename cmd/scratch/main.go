@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/philpearl/scratchbuild"
 )
@@ -30,6 +31,15 @@ func main() {
 	flag.StringVar(&o.Password, "password", "", "Registry password")
 	flag.StringVar(&o.Token, "token", "", "Repository bearer token. For the GCP repository use this with $(gcloud auth print-access-token)")
 	flag.StringVar(&o.Tag, "tag", "latest", "Image tag")
+
+	var env multiString
+	flag.Var(&env, "env", "Environment variables. Repeat to add more definitions, e.g. '-env PATH=/hat -env USER=postgras'")
+	var volumes multiString
+	flag.Var(&volumes, "vol", "Volumes. Repeat to add more definitions, e.g. '-vol /etc/myapp -env /var/myapp'")
+	var entrypoint string
+	flag.StringVar(&entrypoint, "entrypoint", "", "Entrypoint.")
+	var labels multiPair
+	flag.Var(&labels, "label", "Labels. Repeat to add more definitions, e.g. '-label label1=green -label label2=red'")
 
 	flag.Parse()
 
@@ -57,23 +67,58 @@ func main() {
 	}
 
 	imageConfig := scratchbuild.ImageConfig{
-		Env: []string{"SSL_CERT_FILE=/ca-certificates.crt", "GOOGLE_APPLICATION_CREDENTIALS=/fakegcpcreds.json"},
-		Labels: map[string]string{
-			"org.label-schema.schema-version": "1.0",
-			"org.label-schema.vendor":         "ravelin",
-			"org.label-schema.vcs-url":        "https://github.com/unravelin/core",
-			"org.label-schema.name":           "$NAME",
-			"org.label-schema.build_date":     "$DATE",
-			"org.label-schema.version":        "$VERSION",
-			"org.label-schema.vcs-ref":        "$VCS_REF",
-		},
-		Volumes: map[string]struct{}{
-			"/etc/ravelin": struct{}{},
-		},
-		Entrypoint: []string{"/app"},
+		Env: env,
+	}
+
+	if entrypoint != "" {
+		imageConfig.Entrypoint = strings.Fields(entrypoint)
+	}
+
+	if len(labels) > 0 {
+		imageConfig.Labels = make(map[string]string, len(labels))
+		for _, l := range labels {
+			imageConfig.Labels[l[0]] = l[1]
+		}
+	}
+
+	if len(volumes) > 0 {
+		imageConfig.Volumes = make(map[string]struct{}, len(volumes))
+		for _, v := range volumes {
+			imageConfig.Volumes[v] = struct{}{}
+		}
 	}
 
 	if err := c.BuildImage(&imageConfig, b.Bytes()); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to build image. %s\n", err)
 	}
+}
+
+type multiString []string
+
+func (i *multiString) String() string {
+	return "my string representation"
+}
+
+func (i *multiString) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+type pair [2]string
+
+type multiPair []pair
+
+func (i *multiPair) String() string {
+	return "lalala"
+}
+
+func (i *multiPair) Set(value string) error {
+
+	p := strings.SplitN(value, "=", 2)
+	if len(p) != 2 {
+		return fmt.Errorf("should contain an =")
+	}
+
+	*i = append(*i, pair{p[0], p[1]})
+	return nil
 }

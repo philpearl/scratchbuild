@@ -1,9 +1,9 @@
 package scratchbuild
 
 import (
-	// We need to import this to register the hash function for the digest
 	"bytes"
 	"compress/gzip"
+	// We need to import this to register the hash function for the digest
 	_ "crypto/sha256"
 	"encoding/json"
 

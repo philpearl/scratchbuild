@@ -1,9 +1,13 @@
+package scratchbuild_test
 
-[![GoDoc](https://godoc.org/github.com/philpearl/scratchbuild?status.svg)](https://godoc.org/github.com/philpearl/scratchbuild)
+import (
+	"bytes"
+	"log"
 
-A library and tiny app for directly building very simple docker images & pushing them to a repository without involving the docker daemon, and with no complex dependencies.
+	"github.com/philpearl/scratchbuild"
+)
 
-```go
+func ExampleClient() {
 	o := scratchbuild.Options{
 		Dir:      "./testdata",
 		Name:     "philpearl/test",
@@ -31,4 +35,4 @@ A library and tiny app for directly building very simple docker images & pushing
 	}, b.Bytes()); err != nil {
 		log.Fatalf("failed to build and send image. %s", err)
 	}
-```
+}

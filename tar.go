@@ -10,7 +10,8 @@ import (
 )
 
 // TarDirectory builds a directory into a tar file. At the moment it does not support
-// subdirectories
+// subdirectories. dir is the name of the directory to copy into the tar file. The tar file
+// is written into w.
 func TarDirectory(dir string, w io.Writer) error {
 	tw := tar.NewWriter(w)
 	defer tw.Close()
