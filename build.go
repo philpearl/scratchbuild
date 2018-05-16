@@ -3,6 +3,7 @@ package scratchbuild
 import (
 	"bytes"
 	"compress/gzip"
+	"time"
 	// We need to import this to register the hash function for the digest
 	_ "crypto/sha256"
 	"encoding/json"
@@ -33,7 +34,9 @@ func (c *Client) BuildImage(imageConfig *ImageConfig, layer []byte) error {
 		return errors.Wrap(err, "failed to send image layer")
 	}
 
+	now := time.Now().UTC()
 	image := Image{
+		Created:      &now,
 		Architecture: "amd64",
 		OS:           "linux",
 		Config:       *imageConfig,
