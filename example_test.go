@@ -28,7 +28,7 @@ func ExampleClient() {
 	if err != nil {
 		log.Fatalf("failed to authorize. %s", err)
 	}
-	c.Token = token
+	c.Token = func() string { return token }
 
 	if err := c.BuildImage(&scratchbuild.ImageConfig{
 		Entrypoint: []string{"/app"},

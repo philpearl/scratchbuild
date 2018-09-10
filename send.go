@@ -28,7 +28,7 @@ type Options struct {
 	Password string
 	// Token is the bearer token for the repository. For GCR you can use $(gcloud auth print-access-token).
 	// For Docker, supply your Docker Hub username and password instead.
-	Token string
+	Token func() string
 	// Tag is the tag for the image. Set to "latest" if you're out of ideas
 	Tag string
 }
@@ -50,8 +50,8 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 	if err != nil {
 		return nil, err
 	}
-	if c.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.Token)
+	if c.Token != nil {
+		req.Header.Set("Authorization", "Bearer "+c.Token())
 	}
 
 	return req, nil
