@@ -12,7 +12,7 @@ func ExampleClient() {
 		Dir:      "./testdata",
 		Name:     "philpearl/test",
 		BaseURL:  "https://index.docker.io",
-		Tag:      "latest",
+		Tags:     []string{"latest"},
 		User:     "philpearl",
 		Password: "sekret",
 	}

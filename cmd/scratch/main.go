@@ -12,7 +12,7 @@ import (
 
 func validate(o *scratchbuild.Options) error {
 	if o.Name == "" {
-		return fmt.Errorf("You must specify a name for the image")
+		return fmt.Errorf("you must specify a name for the image")
 	}
 	return nil
 }
@@ -29,8 +29,10 @@ func main() {
 	// Don't use these for the GCP repository
 	flag.StringVar(&o.User, "user", "", "Registry user name")
 	flag.StringVar(&o.Password, "password", "", "Registry password")
-	flag.StringVar(&o.Token, "token", "", "Repository bearer token. For the GCP repository use this with $(gcloud auth print-access-token)")
-	flag.StringVar(&o.Tag, "tag", "latest", "Image tag")
+	var token string
+	flag.StringVar(&token, "token", "", "Repository bearer token. For the GCP repository use this with $(gcloud auth print-access-token)")
+	var tags multiString
+	flag.Var(&tags, "tag", "Image tag")
 
 	var env multiString
 	flag.Var(&env, "env", "Environment variables. Repeat to add more definitions, e.g. '-env PATH=/hat -env USER=postgras'")
@@ -42,6 +44,10 @@ func main() {
 	flag.Var(&labels, "label", "Labels. Repeat to add more definitions, e.g. '-label label1=green -label label2=red'")
 
 	flag.Parse()
+	if len(tags) == 0 {
+		tags = []string{"latest"}
+	}
+	o.Tags = tags
 
 	if err := validate(&o); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -49,11 +55,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	o.Token = func() string { return token }
 	c := scratchbuild.New(&o)
 
-	if c.Token == "" {
+	if token == "" {
 		var err error
-		c.Token, err = c.Auth()
+		token, err = c.Auth()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to authenticate. %s\n", err)
 			os.Exit(1)
@@ -113,7 +120,6 @@ func (i *multiPair) String() string {
 }
 
 func (i *multiPair) Set(value string) error {
-
 	p := strings.SplitN(value, "=", 2)
 	if len(p) != 2 {
 		return fmt.Errorf("should contain an =")

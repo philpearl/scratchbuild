@@ -2,11 +2,10 @@ package scratchbuild
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-
-	"github.com/pkg/errors"
 )
 
 // TarDirectory builds a directory into a tar file. At the moment it does not support
@@ -18,27 +17,27 @@ func TarDirectory(dir string, w io.Writer) error {
 
 	d, err := os.Open(dir)
 	if err != nil {
-		return errors.Wrap(err, "failed to open directory")
+		return fmt.Errorf("failed to open directory: %w", err)
 	}
 	defer d.Close()
 
 	fis, err := d.Readdir(0)
 	if err != nil {
-		return errors.Wrap(err, "failed to read directory")
+		return fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	for _, fi := range fis {
 		if fi.IsDir() {
-			return errors.Errorf("directories (%s) are not currently supported", fi.Name())
+			return fmt.Errorf("directories (%s) are not currently supported", fi.Name())
 		}
 		h, err := tar.FileInfoHeader(fi, "")
 		if err != nil {
-			return errors.Wrapf(err, "failed building tar header for %s", fi.Name())
+			return fmt.Errorf("failed building tar header for %s: %w", fi.Name(), err)
 		}
 		h.Name = filepath.Join(".", h.Name)
 
 		if err := tw.WriteHeader(h); err != nil {
-			return errors.Wrapf(err, "failed writing header for %s", fi.Name())
+			return fmt.Errorf("failed writing header for %s: %w", fi.Name(), err)
 		}
 
 		f, err := os.Open(filepath.Join(dir, fi.Name()))
@@ -47,7 +46,7 @@ func TarDirectory(dir string, w io.Writer) error {
 		}
 		if _, err := io.Copy(tw, f); err != nil {
 			f.Close()
-			return errors.Wrapf(err, "failed copying %s into tar file", fi.Name())
+			return fmt.Errorf("failed copying %s into tar file: %w", fi.Name(), err)
 		}
 		f.Close()
 	}

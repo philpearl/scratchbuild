@@ -2,14 +2,12 @@ package scratchbuild
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Auth gets a bearer token from the repository using the user and password from
@@ -23,10 +21,10 @@ func (c *Client) Auth() (string, error) {
 	}
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "failed sending auth request")
+		return "", fmt.Errorf("failed sending auth request: %w", err)
 	}
 	defer rsp.Body.Close()
-	io.Copy(ioutil.Discard, rsp.Body)
+	io.Copy(io.Discard, rsp.Body)
 
 	if rsp.StatusCode == http.StatusOK {
 		// no auth needed
@@ -34,7 +32,7 @@ func (c *Client) Auth() (string, error) {
 	}
 
 	if rsp.StatusCode != http.StatusUnauthorized {
-		return "", errors.Errorf("unexpected status %s", rsp.Status)
+		return "", fmt.Errorf("unexpected status %s", rsp.Status)
 	}
 
 	// The Www-Authenticate header tells us where to go to get a token
@@ -45,7 +43,7 @@ func (c *Client) Auth() (string, error) {
 
 	u, err := url.Parse(vals["realm"])
 	if err != nil {
-		return "", errors.Wrapf(err, "could not parse authentication realm")
+		return "", fmt.Errorf("could not parse authentication realm: %w", err)
 	}
 	q := u.Query()
 	q.Set("service", vals["service"])
@@ -63,15 +61,15 @@ func (c *Client) Auth() (string, error) {
 
 	rsp, err = http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "failed sending auth request")
+		return "", fmt.Errorf("failed sending auth request: %w", err)
 	}
 	defer rsp.Body.Close()
 	if rsp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected status %s", rsp.Status)
+		return "", fmt.Errorf("unexpected status %s", rsp.Status)
 	}
-	body, err := ioutil.ReadAll(rsp.Body)
+	body, err := io.ReadAll(rsp.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "could not read auth response body")
+		return "", fmt.Errorf("could not read auth response body: %w", err)
 	}
 
 	type token struct {
@@ -79,7 +77,7 @@ func (c *Client) Auth() (string, error) {
 	}
 	var tok token
 	if err := json.Unmarshal(body, &tok); err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal token")
+		return "", fmt.Errorf("failed to unmarshal token: %w", err)
 	}
 
 	return tok.Token, nil
@@ -94,7 +92,7 @@ func parseWWWAuthenticate(raw string) (map[string]string, error) {
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
-			return nil, errors.Errorf("cannot parse Www-Authenticate header %s", raw)
+			return nil, fmt.Errorf("cannot parse Www-Authenticate header %s", raw)
 		}
 		v := kv[1]
 		vals[kv[0]] = v[1 : len(v)-1]
