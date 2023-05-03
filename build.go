@@ -2,7 +2,6 @@ package scratchbuild
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	_ "crypto/sha256"
 	"encoding/json"
 
+	"github.com/klauspost/pgzip"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -19,7 +19,7 @@ func (c *Client) BuildImage(imageConfig *ImageConfig, layer []byte) error {
 	dig := digest.FromBytes(layer)
 
 	b := &bytes.Buffer{}
-	gw := gzip.NewWriter(b)
+	gw := pgzip.NewWriter(b)
 	if _, err := gw.Write(layer); err != nil {
 		return fmt.Errorf("failed to compress image layer: %w", err)
 	}
